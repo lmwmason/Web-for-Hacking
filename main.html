@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vulnerable Login System - For Security Testing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .button-group {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .login-btn {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .register-btn {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .back-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .debug-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .vulnerable-comment {
+            color: #dc3545;
+            font-size: 12px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Login Form -->
+    <div id="loginForm">
+        <h1>LOGIN</h1>
+        <!-- XSS Vulnerability: Reflected XSS through URL parameters -->
+        <div id="welcome-message"></div>
+
+        <div class="form-group">
+            <label for="loginId">아이디:</label>
+            <input id="loginId" type="text" placeholder="아이디를 입력하세요">
+            <div class="vulnerable-comment">취약점: 입력 값 검증 부족</div>
+        </div>
+
+        <div class="form-group">
+            <label for="loginPw">비밀번호:</label>
+            <!-- Vulnerability: Password field as text type -->
+            <input id="loginPw" type="text" placeholder="비밀번호를 입력하세요">
+            <div class="vulnerable-comment">취약점: 비밀번호가 텍스트로 표시됨</div>
+        </div>
+
+        <div class="button-group">
+            <button class="register-btn" onclick="showRegisterForm()">회원가입</button>
+            <button class="login-btn" onclick="attemptLogin()">로그인</button>
+        </div>
+
+        <div id="loginMessage"></div>
+
+        <!-- Debug information (vulnerability) -->
+        <div class="debug-info">
+            <strong>Debug Info (취약점):</strong><br>
+            <span id="debugInfo">현재 입력값이 여기에 실시간으로 표시됩니다...</span>
+        </div>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" class="hidden">
+        <h1>회원가입</h1>
+
+        <div class="form-group">
+            <label for="regId">아이디:</label>
+            <input id="regId" type="text" placeholder="아이디를 입력하세요">
+        </div>
+
+        <div class="form-group">
+            <label for="regPw">비밀번호:</label>
+            <input id="regPw" type="text" placeholder="비밀번호를 입력하세요">
+        </div>
+
+        <div class="form-group">
+            <label for="regPwConfirm">비밀번호 확인:</label>
+            <input id="regPwConfirm" type="text" placeholder="비밀번호를 다시 입력하세요">
+        </div>
+
+        <div class="button-group">
+            <button class="back-btn" onclick="showLoginForm()">뒤로가기</button>
+            <button class="register-btn" onclick="createAccount()">회원가입</button>
+        </div>
+
+        <div id="registerMessage"></div>
+    </div>
+
+    <!-- Success Page -->
+    <div id="successPage" class="hidden">
+        <h1>로그인 성공!</h1>
+        <p>환영합니다! <span id="loggedInUser"></span>님</p>
+        <div class="button-group">
+            <button class="back-btn" onclick="logout()">로그아웃</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 취약한 사용자 데이터 저장 (클라이언트 사이드)
+    let users = [
+        {id: 'admin', password: 'admin123'},
+        {id: 'test', password: 'test'},
+        {id: 'user', password: 'password'}
+    ];
+
+    // XSS Vulnerability: URL parameter reflection
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const welcomeMsg = urlParams.get('welcome');
+        if (welcomeMsg) {
+            // Vulnerable: Direct HTML injection without sanitization
+            document.getElementById('welcome-message').innerHTML = welcomeMsg;
+        }
+
+        // Real-time debug info (vulnerability)
+        setInterval(updateDebugInfo, 500);
+    };
+
+    function updateDebugInfo() {
+        const id = document.getElementById('loginId')?.value || '';
+        const pw = document.getElementById('loginPw')?.value || '';
+        const debugInfo = document.getElementById('debugInfo');
+        if (debugInfo) {
+            debugInfo.innerHTML = `ID: ${id}<br>Password: ${pw}<br>Timestamp: ${new Date().toLocaleString()}`;
+        }
+    }
+
+    function attemptLogin() {
+        const id = document.getElementById('loginId').value;
+        const pw = document.getElementById('loginPw').value;
+        const messageDiv = document.getElementById('loginMessage');
+
+        // Vulnerability: No input validation
+        if (!id || !pw) {
+            messageDiv.innerHTML = '<div class="error">아이디와 비밀번호를 입력하세요!</div>';
+            return;
+        }
+
+        // Vulnerability: Client-side authentication
+        const user = users.find(u => u.id === id && u.password === pw);
+
+        if (user) {
+            // Vulnerability: Sensitive data in client-side storage
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            document.getElementById('loggedInUser').textContent = user.id;
+            showSuccessPage();
+        } else {
+            // Vulnerability: Information disclosure
+            messageDiv.innerHTML = `<div class="error">로그인 실패! 입력한 정보: ID=${id}, PW=${pw}</div>`;
+        }
+    }
+
+    function createAccount() {
+        const id = document.getElementById('regId').value;
+        const pw = document.getElementById('regPw').value;
+        const pwConfirm = document.getElementById('regPwConfirm').value;
+        const messageDiv = document.getElementById('registerMessage');
+
+        // Vulnerability: Insufficient validation
+        if (!id || !pw || !pwConfirm) {
+            messageDiv.innerHTML = '<div class="error">모든 필드를 입력하세요!</div>';
+            return;
+        }
+
+        if (pw !== pwConfirm) {
+            messageDiv.innerHTML = '<div class="error">비밀번호가 일치하지 않습니다!</div>';
+            return;
+        }
+
+        // Vulnerability: No duplicate check, weak password policy
+        users.push({id: id, password: pw});
+        messageDiv.innerHTML = '<div class="success">회원가입 성공! 로그인 페이지로 이동합니다.</div>';
+
+        setTimeout(() => {
+            showLoginForm();
+        }, 2000);
+    }
+
+    function showLoginForm() {
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('registerForm').classList.add('hidden');
+        document.getElementById('successPage').classList.add('hidden');
+    }
+
+    function showRegisterForm() {
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('registerForm').classList.remove('hidden');
+        document.getElementById('successPage').classList.add('hidden');
+    }
+
+    function showSuccessPage() {
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('registerForm').classList.add('hidden');
+        document.getElementById('successPage').classList.remove('hidden');
+    }
+
+    function logout() {
+        localStorage.removeItem('currentUser');
+        showLoginForm();
+    }
+
+    // Additional vulnerability: Global function exposure
+    window.showAllUsers = function() {
+        console.log('All users:', users);
+        alert('사용자 정보가 콘솔에 출력되었습니다.');
+    };
+
+    // XSS Testing function
+    window.testXSS = function(payload) {
+        document.getElementById('welcome-message').innerHTML = payload;
+    };
+</script>
+</body>
+</html>
